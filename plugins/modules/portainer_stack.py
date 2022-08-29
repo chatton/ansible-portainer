@@ -4,11 +4,21 @@ from __future__ import (absolute_import, division, print_function)
 
 __metaclass__ = type
 
-import requests
+from ansible.module_utils.basic import AnsibleModule
+
+try:
+    # FIXME: Hack to make imports work with IDE. The ansible import path is not valid for a regular python
+    # project.
+    from plugins.module_utils.portainer import *
+except ImportError:
+    from ansible_collections.chatton.portainer.plugins.module_utils.portainer import (
+        PortainerClient,
+        _query_params_to_string
+)
 
 DOCUMENTATION = r'''
 ---
-module: my_test
+module: portainer_stack
 
 short_description: This is my test module
 
@@ -39,133 +49,60 @@ author:
 '''
 
 EXAMPLES = r'''
-# Pass in a message
-- name: Test with a message
-  my_namespace.my_collection.my_test:
-    name: hello world
+# Deploy Gitea, Plex and Mealie stacks to portainer provided the files exist.
+- name: Portainer | Update Stack
+  chatton.portainer.portainer_stack:
+    username: admin
+    password: "{{portainer.password}}"
+    docker_compose_file_path: "/etc/docker-compose/{{ item.name }}/docker-compose.yml"
+    stack_name: "{{ item.name }}"
+    endpoint_id: "{{ item.endpoint_id }}"
+    state: present
+  with_items:
+    - name: gitea
+      endpoint_id: 1
+    - name: plex
+      endpoint_id: 2
+    - name: mealie
+      endpoint_id: 3
 
-# pass in a message and have changed true
-- name: Test with a message and changed output
-  my_namespace.my_collection.my_test:
-    name: hello world
-    new: true
-
-# fail the module
-- name: Test failure of the module
-  my_namespace.my_collection.my_test:
-    name: fail me
+# Delete plex stack
+- name: Portainer | Delete Plex Stack
+  chatton.portainer.portainer_stack:
+    username: admin
+    password: "{{portainer.password}}"
+    stack_name: "plex"
+    endpoint_id: "2"
+    state: absent
 '''
 
 RETURN = r'''
 # These are examples of possible return values, and in general should use other names for return values.
-original_message:
-    description: The original name param that was passed in.
+username:
+    description: The Portainer username.
     type: str
     returned: always
-    sample: 'hello world'
-message:
-    description: The output message that the test module generates.
+    sample: 'admin'
+password:
+    description: The provided user's password.
     type: str
-    returned: always
-    sample: 'goodbye'
+    returned: never
+    sample: 'MyS00p3rS3cretPassw0rd'
+docker_compose_file_path:
+    description: The path to a docker compose file which will be used to create the Portainer stack.
+    type: str
+    returned: never
+    sample: ''
 '''
 
-from ansible.module_utils.basic import AnsibleModule
-
-
-def _extract_creds(module):
-    return {
-        "username": module.params["username"],
-        "password": module.params["password"],
-        "base_url": module.params["base_url"],
-    }
-
-
-def _get_jwt_token(creds):
-    payload = {
-        "Username": creds["username"],
-        "Password": creds["password"],
-    }
-
-    base_url = creds["base_url"]
-    auth_url = f"{base_url}/api/auth"
-    resp = requests.post(auth_url, json=payload)
-    resp.raise_for_status()
-    return resp.json()["jwt"]
 
 
 COMPOSE_STACK = 2
 STRING_METHOD = "string"
 
-
-def _query_params_to_string(params):
-    s = "?"
-    for k, v in params.items():
-        s += f"&{k}={v}"
-    return s
-
-
-def _load_envs_from_file(filepath):
-    envs = []
-    with open(filepath) as f:
-        file_contents = f.read()
-    lines = file_contents.splitlines()
-    for line in lines:
-        name, value = line.split("=")
-        envs.append({
-            "name": name,
-            "value": value
-        })
-    return envs
-
-
-class PortainerClient:
-    def __init__(self, creds):
-        self.base_url = creds["base_url"]
-        self.token = _get_jwt_token(creds)
-        self.headers = {
-            "Authorization": f"Bearer {self.token}"
-        }
-
-    def get(self, endpoint, query_params=None):
-        url = f"{self.base_url}/api/{endpoint}"
-        if query_params:
-            url = url + _query_params_to_string(query_params)
-
-        res = requests.get(url, headers=self.headers)
-        res.raise_for_status()
-        return res.json()
-
-    def delete(self, endpoint):
-        url = f"{self.base_url}/api/{endpoint}"
-        try:
-            # TODO: deletion works, but the request fails?
-            res = requests.delete(url, headers=self.headers)
-            res.raise_for_status()
-        except Exception:
-            pass
-        return {}
-
-    def put(self, endpoint, body):
-        url = f"{self.base_url}/api/{endpoint}"
-        res = requests.put(url, json=body, headers=self.headers)
-        res.raise_for_status()
-        return res.json()
-
-    def post(self, endpoint, body, query_params=None):
-        url = f"{self.base_url}/api/{endpoint}" + _query_params_to_string(query_params)
-
-        res = requests.post(url, json=body, headers=self.headers)
-        res.raise_for_status()
-        return res.json()
-
-
-def _create_stack(client, module, file_contents, envs=None):
-    if not envs:
-        envs = []
+def _create_stack(client, module, file_contents):
     target_stack_name = module.params["stack_name"]
     body = {
-        "env": envs,
         "name": target_stack_name,
         "stackFileContent": file_contents,
     }
@@ -173,19 +110,16 @@ def _create_stack(client, module, file_contents, envs=None):
     query_params = {
         "type": COMPOSE_STACK,
         "method": STRING_METHOD,
-        "endpointId": 2,
+        "endpointId": client.endpoint,
     }
     return client.post("stacks", body=body, query_params=query_params)
 
 
-def _update_stack(client, module, stack_id, envs=None):
-    if not envs:
-        envs = []
+def _update_stack(client, module, stack_id):
     target_stack_name = module.params["stack_name"]
     with open(module.params["docker_compose_file_path"]) as f:
         file_contents = f.read()
-    return client.put(f"stacks/{stack_id}?&endpointId=2", body={
-        "env": envs,
+    return client.put(f"stacks/{stack_id}?&endpointId={client.endpoint}", body={
         "name": target_stack_name,
         "stackFileContent": file_contents,
     })
@@ -220,7 +154,7 @@ def handle_state_present(client, module):
 
     stack_id = result["stack_id"]
     current_file_contents_resp = client.get(f"stacks/{stack_id}/file", query_params={
-        "endpointId": 2
+        "endpointId": client.endpoint
     })
 
     result["are_equal"] = current_file_contents_resp["StackFileContent"] == file_contents
@@ -253,7 +187,7 @@ def handle_state_absent(client, module):
         return
 
     stack_id = result['stack_id']
-    client.delete(f"stacks/{stack_id}" + _query_params_to_string({"endpointId": 2}))
+    client.delete(f"stacks/{stack_id}" + _query_params_to_string({"endpointId": client.endpoint}))
     result["changed"] = True
     module.exit_json(**result)
 
@@ -262,12 +196,18 @@ def run_module():
     # define available arguments/parameters a user can pass to the module
     module_args = dict(
         stack_name=dict(type='str', required=True),
-        docker_compose_file_path=dict(type='str', required=True),
+        docker_compose_file_path=dict(type='str'),
         username=dict(type='str', default='admin'),
         password=dict(type='str', required=True, no_log=True),
+        endpoint_id=dict(type='int', required=True),
         base_url=dict(type='str', default="http://localhost:9000"),
         state=dict(type='str', default="present", choices=['present', 'absent'])
     )
+
+    required_if = [
+        # docker compose file is only required if we are ensuring the stack is present.
+        ['state', 'present', ('docker_compose_file_path',)],
+    ]
 
     state_fns = {
         "present": handle_state_present,
@@ -280,10 +220,14 @@ def run_module():
     # supports check mode
     module = AnsibleModule(
         argument_spec=module_args,
+        required_if=required_if,
+        # TODO: support check mode
         supports_check_mode=False
     )
 
-    client = PortainerClient(creds=_extract_creds(module))
+    client = PortainerClient(base_url=module.params["base_url"], endpoint=module.params["endpoint_id"])
+    client.login(module.params["username"], module.params["password"])
+
     state_fns[module.params["state"]](client, module)
 
 
