@@ -1,4 +1,3 @@
-
 import requests
 
 
@@ -25,9 +24,7 @@ class PortainerClient:
         resp = requests.post(auth_url, json=payload)
         resp.raise_for_status()
         self.token = resp.json()["jwt"]
-        self.headers = {
-            "Authorization": f"Bearer {self.token}"
-        }
+        self.headers = {"Authorization": f"Bearer {self.token}"}
 
     def get(self, get_endpoint, query_params=None):
         url = f"{self.base_url}/api/{get_endpoint}"

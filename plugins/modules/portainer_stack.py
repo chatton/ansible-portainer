@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-from __future__ import (absolute_import, division, print_function)
+from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
@@ -13,10 +13,10 @@ try:
 except ImportError:
     from ansible_collections.chatton.portainer.plugins.module_utils.portainer import (
         PortainerClient,
-        _query_params_to_string
-)
+        _query_params_to_string,
+    )
 
-DOCUMENTATION = r'''
+DOCUMENTATION = r"""
 ---
 module: portainer_stack
 
@@ -46,9 +46,9 @@ extends_documentation_fragment:
 
 author:
     - Your Name (@chatton)
-'''
+"""
 
-EXAMPLES = r'''
+EXAMPLES = r"""
 # Deploy Gitea, Plex and Mealie stacks to portainer provided the files exist.
 - name: Portainer | Update Stack
   chatton.portainer.portainer_stack:
@@ -74,9 +74,9 @@ EXAMPLES = r'''
     stack_name: "plex"
     endpoint_id: "2"
     state: absent
-'''
+"""
 
-RETURN = r'''
+RETURN = r"""
 # These are examples of possible return values, and in general should use other names for return values.
 username:
     description: The Portainer username.
@@ -93,12 +93,12 @@ docker_compose_file_path:
     type: str
     returned: never
     sample: ''
-'''
-
+"""
 
 
 COMPOSE_STACK = 2
 STRING_METHOD = "string"
+
 
 def _create_stack(client, module, file_contents):
     target_stack_name = module.params["stack_name"]
@@ -119,17 +119,17 @@ def _update_stack(client, module, stack_id):
     target_stack_name = module.params["stack_name"]
     with open(module.params["docker_compose_file_path"]) as f:
         file_contents = f.read()
-    return client.put(f"stacks/{stack_id}?&endpointId={client.endpoint}", body={
-        "name": target_stack_name,
-        "stackFileContent": file_contents,
-    })
+    return client.put(
+        f"stacks/{stack_id}?&endpointId={client.endpoint}",
+        body={
+            "name": target_stack_name,
+            "stackFileContent": file_contents,
+        },
+    )
 
 
 def handle_state_present(client, module):
-    result = dict(
-        changed=False,
-        stack_name=module.params["stack_name"]
-    )
+    result = dict(changed=False, stack_name=module.params["stack_name"])
 
     already_exists = False
     stacks = client.get("stacks")
@@ -153,11 +153,13 @@ def handle_state_present(client, module):
         return
 
     stack_id = result["stack_id"]
-    current_file_contents_resp = client.get(f"stacks/{stack_id}/file", query_params={
-        "endpointId": client.endpoint
-    })
+    current_file_contents_resp = client.get(
+        f"stacks/{stack_id}/file", query_params={"endpointId": client.endpoint}
+    )
 
-    result["are_equal"] = current_file_contents_resp["StackFileContent"] == file_contents
+    result["are_equal"] = (
+        current_file_contents_resp["StackFileContent"] == file_contents
+    )
     if result["are_equal"]:
         module.exit_json(**result)
         return
@@ -169,10 +171,7 @@ def handle_state_present(client, module):
 
 
 def handle_state_absent(client, module):
-    result = dict(
-        changed=False,
-        stack_name=module.params["stack_name"]
-    )
+    result = dict(changed=False, stack_name=module.params["stack_name"])
     already_exists = False
     target_stack_name = module.params["stack_name"]
     stacks = client.get("stacks")
@@ -186,8 +185,10 @@ def handle_state_absent(client, module):
         module.exit_json(**result)
         return
 
-    stack_id = result['stack_id']
-    client.delete(f"stacks/{stack_id}" + _query_params_to_string({"endpointId": client.endpoint}))
+    stack_id = result["stack_id"]
+    client.delete(
+        f"stacks/{stack_id}" + _query_params_to_string({"endpointId": client.endpoint})
+    )
     result["changed"] = True
     module.exit_json(**result)
 
@@ -195,24 +196,21 @@ def handle_state_absent(client, module):
 def run_module():
     # define available arguments/parameters a user can pass to the module
     module_args = dict(
-        stack_name=dict(type='str', required=True),
-        docker_compose_file_path=dict(type='str'),
-        username=dict(type='str', default='admin'),
-        password=dict(type='str', required=True, no_log=True),
-        endpoint_id=dict(type='int', required=True),
-        base_url=dict(type='str', default="http://localhost:9000"),
-        state=dict(type='str', default="present", choices=['present', 'absent'])
+        stack_name=dict(type="str", required=True),
+        docker_compose_file_path=dict(type="str"),
+        username=dict(type="str", default="admin"),
+        password=dict(type="str", required=True, no_log=True),
+        endpoint_id=dict(type="int", required=True),
+        base_url=dict(type="str", default="http://localhost:9000"),
+        state=dict(type="str", default="present", choices=["present", "absent"]),
     )
 
     required_if = [
         # docker compose file is only required if we are ensuring the stack is present.
-        ['state', 'present', ('docker_compose_file_path',)],
+        ["state", "present", ("docker_compose_file_path",)],
     ]
 
-    state_fns = {
-        "present": handle_state_present,
-        "absent": handle_state_absent
-    }
+    state_fns = {"present": handle_state_present, "absent": handle_state_absent}
 
     # the AnsibleModule object will be our abstraction working with Ansible
     # this includes instantiation, a couple of common attr would be the
@@ -222,10 +220,12 @@ def run_module():
         argument_spec=module_args,
         required_if=required_if,
         # TODO: support check mode
-        supports_check_mode=False
+        supports_check_mode=False,
     )
 
-    client = PortainerClient(base_url=module.params["base_url"], endpoint=module.params["endpoint_id"])
+    client = PortainerClient(
+        base_url=module.params["base_url"], endpoint=module.params["endpoint_id"]
+    )
     client.login(module.params["username"], module.params["password"])
 
     state_fns[module.params["state"]](client, module)
@@ -235,5 +235,5 @@ def main():
     run_module()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
