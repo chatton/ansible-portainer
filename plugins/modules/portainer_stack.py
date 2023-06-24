@@ -120,7 +120,7 @@ def _update_stack(contents, client, module, stack_id):
         f"stacks/{stack_id}?&endpointId={client.endpoint}",
         body={
             "name": target_stack_name,
-            "stackFileContent": contents,
+            "stackFileContent": json.dumps(contents),
         },
     )
 
@@ -205,7 +205,7 @@ def run_module():
     module_args = dict(
         stack_name=dict(type="str", required=True),
         docker_compose_file_path=dict(type="str"),
-        stack_definition=dict(type="str"),
+        stack_definition=dict(type=str),
         username=dict(type="str", default="admin"),
         password=dict(type="str", required=True, no_log=True),
         endpoint_id=dict(type="int", required=True),
