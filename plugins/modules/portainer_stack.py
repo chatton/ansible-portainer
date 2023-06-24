@@ -166,10 +166,10 @@ def handle_state_present(client, module):
     result["stacks"] = stacks
 
     contents = ""
-    if "docker_compose_file_path" in module.params:
+    if module.params.get("docker_compose_file_path"):
         with open(module.params["docker_compose_file_path"]) as f:
             contents = f.read()
-    elif "stack_definition" in module.params:
+    elif module.params.get("stack_definition"):
         contents = module.params["stack_definition"]
     else:
         raise ValueError("Should not be able to be here!")
