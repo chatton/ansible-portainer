@@ -174,7 +174,7 @@ def handle_state_present(client, module):
     else:
         raise ValueError("Should not be able to be here!")
 
-    _handle_state_present(contents, result, stacks, client, module)
+    _handle_state_present(contents, stacks, result, client, module)
 
 
 def handle_state_absent(client, module):
