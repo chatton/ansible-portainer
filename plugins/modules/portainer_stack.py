@@ -95,7 +95,6 @@ docker_compose_file_path:
     sample: ''
 """
 
-
 COMPOSE_STACK = 2
 STRING_METHOD = "string"
 
@@ -128,16 +127,8 @@ def _update_stack(client, module, stack_id):
     )
 
 
-def handle_state_present(client, module):
-    result = dict(changed=False, stack_name=module.params["stack_name"])
-
+def _handle_state_present(contents, result, client, module)
     already_exists = False
-    stacks = client.get("stacks")
-    result["stacks"] = stacks
-
-    with open(module.params["docker_compose_file_path"]) as f:
-        file_contents = f.read()
-
     target_stack_name = module.params["stack_name"]
     for stack in stacks:
         if stack["Name"] == target_stack_name and int(stack["EndpointId"]) == module.params["endpoint_id"]:
@@ -146,7 +137,7 @@ def handle_state_present(client, module):
             break
 
     if not already_exists:
-        stack = _create_stack(client, module, file_contents)
+        stack = _create_stack(client, module, contents)
         result["changed"] = True
         result["stack_id"] = stack["Id"]
         module.exit_json(**result)
@@ -158,7 +149,7 @@ def handle_state_present(client, module):
     )
 
     result["are_equal"] = (
-        current_file_contents_resp["StackFileContent"] == file_contents
+            current_file_contents_resp["StackFileContent"] == contents
     )
     if result["are_equal"]:
         module.exit_json(**result)
@@ -168,6 +159,24 @@ def handle_state_present(client, module):
     _update_stack(client, module, stack_id)
     result["changed"] = True
     module.exit_json(**result)
+
+
+def handle_state_present(client, module):
+    result = dict(changed=False, stack_name=module.params["stack_name"])
+
+    stacks = client.get("stacks")
+    result["stacks"] = stacks
+
+    contents = ""
+    if "docker_compose_file_path" in module.params:
+        with open(module.params["docker_compose_file_path"]) as f:
+            contents = f.read()
+    elif "definition" in module.params:
+        contents = json.dumps(module.params["definition"])
+    else:
+        raise ValueError("Should not be able to be here!")
+
+    _handle_state_present(contents, result, client, module)
 
 
 def handle_state_absent(client, module):
@@ -198,6 +207,7 @@ def run_module():
     module_args = dict(
         stack_name=dict(type="str", required=True),
         docker_compose_file_path=dict(type="str"),
+        stack_definition=dict(type="str"),
         username=dict(type="str", default="admin"),
         password=dict(type="str", required=True, no_log=True),
         endpoint_id=dict(type="int", required=True),
@@ -205,9 +215,9 @@ def run_module():
         state=dict(type="str", default="present", choices=["present", "absent"]),
     )
 
-    required_if = [
+    required_one_of = [
         # docker compose file is only required if we are ensuring the stack is present.
-        ["state", "present", ("docker_compose_file_path",)],
+        ["state", "present", ("docker_compose_file_path", "stack_definition")],
     ]
 
     state_fns = {"present": handle_state_present, "absent": handle_state_absent}
@@ -218,7 +228,7 @@ def run_module():
     # supports check mode
     module = AnsibleModule(
         argument_spec=module_args,
-        required_if=required_if,
+        required_one_of=required_one_of,
         # TODO: support check mode
         supports_check_mode=False,
     )
