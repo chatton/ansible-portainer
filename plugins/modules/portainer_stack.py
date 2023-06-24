@@ -114,15 +114,13 @@ def _create_stack(client, module, file_contents):
     return client.post("stacks", body=body, query_params=query_params)
 
 
-def _update_stack(client, module, stack_id):
+def _update_stack(contents, client, module, stack_id):
     target_stack_name = module.params["stack_name"]
-    with open(module.params["docker_compose_file_path"]) as f:
-        file_contents = f.read()
     return client.put(
         f"stacks/{stack_id}?&endpointId={client.endpoint}",
         body={
             "name": target_stack_name,
-            "stackFileContent": file_contents,
+            "stackFileContent": contents,
         },
     )
 
@@ -156,7 +154,7 @@ def _handle_state_present(contents, result, client, module)
         return
 
     # the stack exists and we have a new config.
-    _update_stack(client, module, stack_id)
+    _update_stack(contents, client, module, stack_id)
     result["changed"] = True
     module.exit_json(**result)
 
