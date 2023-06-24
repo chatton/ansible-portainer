@@ -125,7 +125,7 @@ def _update_stack(contents, client, module, stack_id):
     )
 
 
-def _handle_state_present(contents, result, client, module)
+def _handle_state_present(contents, result, client, module):
     already_exists = False
     target_stack_name = module.params["stack_name"]
     for stack in stacks:
