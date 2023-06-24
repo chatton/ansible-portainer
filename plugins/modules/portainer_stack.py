@@ -5,6 +5,7 @@ from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
 from ansible.module_utils.basic import AnsibleModule
+import json
 
 try:
     # FIXME: Hack to make imports work with IDE. The ansible import path is not valid for a regular python
@@ -170,7 +171,7 @@ def handle_state_present(client, module):
         with open(module.params["docker_compose_file_path"]) as f:
             contents = f.read()
     elif module.params.get("stack_definition"):
-        json_obj = json.load(module.params["stack_definition"])
+        json_obj = json.loads(module.params["stack_definition"])
         contents = json.dumps(json_obj, indent=4)
     else:
         raise ValueError("Should not be able to be here!")
