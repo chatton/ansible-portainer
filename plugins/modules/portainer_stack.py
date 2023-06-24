@@ -125,7 +125,7 @@ def _update_stack(contents, client, module, stack_id):
     )
 
 
-def _handle_state_present(contents, result, client, module):
+def _handle_state_present(contents, stacks, result, client, module):
     already_exists = False
     target_stack_name = module.params["stack_name"]
     for stack in stacks:
@@ -174,7 +174,7 @@ def handle_state_present(client, module):
     else:
         raise ValueError("Should not be able to be here!")
 
-    _handle_state_present(contents, result, client, module)
+    _handle_state_present(contents, result, stacks, client, module)
 
 
 def handle_state_absent(client, module):
