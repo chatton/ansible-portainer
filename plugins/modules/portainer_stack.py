@@ -119,13 +119,12 @@ def _create_stack(client, module, file_contents):
 
 def _update_stack(client, module, stack_id):
     target_stack_name = module.params["stack_name"]
-    with open(module.params["docker_compose_file_path"]) as f:
-        file_contents = f.read()
+    contents = _get_stack_contents(module.params)
     return client.put(
         f"stacks/{stack_id}?&endpointId={client.endpoint}",
         body={
             "name": target_stack_name,
-            "stackFileContent": file_contents,
+            "stackFileContent": contents,
         },
     )
 
