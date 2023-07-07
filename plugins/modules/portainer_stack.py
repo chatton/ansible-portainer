@@ -222,10 +222,10 @@ def run_module():
     # supports check mode
     module = AnsibleModule(
         argument_spec=module_args,
-        required_if = [
+        # required_if = [
             # docker compose file is only required if we are ensuring the stack is present.
-            ["state", "present", ("docker_compose_file_path",)],
-        ],
+            # ["state", "present", ("docker_compose_file_path",)],
+        # ],
         mutually_exclusive=[
             ('docker_compose_file_path', 'definition'),
         ],
